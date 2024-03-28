@@ -1,0 +1,77 @@
+How to add comment in VQL
+1.) -- This is a single-line comment or # This is a single-line comment // This is single line comment
+2.) /*
+This is 
+a multi-line comment
+*/
+
+######################################################################################
+LABELS
+When we add labels, we can specifie to run hunts only in those systems that have specific label. Also we can label systems
+
+######################################################################################
+Find files or attachemnts in all systems
+* Hunt Artifact: Windows.Search.FileFinder 
+* Configure Parameters > SearchFilesGlob > C:\Users\**\Security_Protocol*   #search in every Users directory for everything that matches Security_Protocol*
+* Edit Notebook for specific results, notebook takes hunt results and you can edit how you want to see them. Uses VQL language
+---- Data to paste in Notebook ----
+SELECT Fqdn,FullPath,BTime AS CreatedTime,MTime as ModifiedTime, Hash,  -- selects specific collumns we want to see in results. MTime as ModifiedTime - renames Mtime to ModifiedTime. 
+label(client_id=ClientId, labels="phish_victim", op="set") // label all systems that came in results with label "phish_victim"
+FROM source()
+----
+Diskette symbol - save notebook, its gonna reexecute querrie and show new results that we want. Now when we check systems there will be labels "phish_victim".
+
+######################################################################################
+How to identify all users in example all devices that were labeled as phish victims.
+
+
+######################################################################################
+Find possible lateral movement using the usernames of the phish victims
+* Hunt Artifact: Windows.EventLogs.RDPAuth
+* Configure Parameters > UserNameregex > .*(Jean\.Owen|Albert\.Willoughby|Chad\.Chan|Anna\.Ward).*     #These are the username we had on those systems like Jean\.Owen and Albert\.Willoughby its like username is Jean.Owen and \ escapes .
+* Edit Notebook
+----
+SELECT EventTime,Computer,Channel,EventID,UserName,LogonType,SourceIP,Description,Message,Fqdn FROM source()
+WHERE ( // excluded logons of the user on their own system
+(UserName =~ "Chad.Chan" AND NOT Computer =~ "ACC-01") //Chad is user of ACC-01 systems, so we dont care about logging on his system
+OR (UserName =~ "Jean.Owen" AND NOT Computer =~ "ACC-05")
+OR (UserName =~ "Albert.Willoughby" AND NOT Computer =~ "ACC-09")
+OR (UserName =~ "Anna.Ward" AND NOT Computer =~ "ACC-04")
+)
+AND NOT EventID = 4634 // less interested in logoff events
+AND NOT (Computer =~ "dc" OR Computer =~ "exchange" OR Computer =~ "fs1") //except DC logins, exchange server and File server fs1
+ORDER BY EventTime
+----
+!!! When pasting this in Notebook there can be non printable characters at the end of line like space! Delete empty spaces at end !!!
+At the end we have all logons by the users that dont use that system
+######################################################################################
+
+
+
+
+######################################################################################
+
+
+######################################################################################
+
+
+######################################################################################
+
+######################################################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
