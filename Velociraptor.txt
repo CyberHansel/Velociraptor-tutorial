@@ -1,4 +1,5 @@
 How to add comment in VQL
+
 1.) -- This is a single-line comment or # This is a single-line comment // This is single line comment
 2.) /*
 This is 
@@ -11,6 +12,7 @@ When we add labels, we can specifie to run hunts only in those systems that have
 
 ######################################################################################
 Find files or attachemnts in all systems
+
 * Hunt Artifact: Windows.Search.FileFinder 
 * Configure Parameters > SearchFilesGlob > C:\Users\**\Security_Protocol*   #search in every Users directory for everything that matches Security_Protocol*
 * Edit Notebook for specific results, notebook takes hunt results and you can edit how you want to see them. Uses VQL language
@@ -25,31 +27,69 @@ Diskette symbol - save notebook, its gonna reexecute querrie and show new result
 How to identify all users in example all devices that were labeled as phish victims.
 
 
+
 ######################################################################################
 Find possible lateral movement using the usernames of the phish victims
+
 * Hunt Artifact: Windows.EventLogs.RDPAuth
 * Configure Parameters > UserNameregex > .*(Jean\.Owen|Albert\.Willoughby|Chad\.Chan|Anna\.Ward).*     #These are the username we had on those systems like Jean\.Owen and Albert\.Willoughby its like username is Jean.Owen and \ escapes .
 * Edit Notebook
 ----
 SELECT EventTime,Computer,Channel,EventID,UserName,LogonType,SourceIP,Description,Message,Fqdn FROM source()
-WHERE ( // excluded logons of the user on their own system
-(UserName =~ "Chad.Chan" AND NOT Computer =~ "ACC-01") //Chad is user of ACC-01 systems, so we dont care about logging on his system
+WHERE (                                                                       // excluded logons of the user on their own system
+(UserName =~ "Chad.Chan" AND NOT Computer =~ "ACC-01")                        //Chad is user of ACC-01 systems, so we dont care about logging on his system
 OR (UserName =~ "Jean.Owen" AND NOT Computer =~ "ACC-05")
 OR (UserName =~ "Albert.Willoughby" AND NOT Computer =~ "ACC-09")
 OR (UserName =~ "Anna.Ward" AND NOT Computer =~ "ACC-04")
 )
 AND NOT EventID = 4634 // less interested in logoff events
-AND NOT (Computer =~ "dc" OR Computer =~ "exchange" OR Computer =~ "fs1") //except DC logins, exchange server and File server fs1
+AND NOT (Computer =~ "dc" OR Computer =~ "exchange" OR Computer =~ "fs1")    //except DC logins, exchange server and File server fs1
 ORDER BY EventTime
 ----
 !!! When pasting this in Notebook there can be non printable characters at the end of line like space! Delete empty spaces at end !!!
 At the end we have all logons by the users that dont use that system
 ######################################################################################
+Find potentially compromised systems by baselining all running processes in the environment. This notebook returns processes marked as untrusted by Authenticode.
 
+* Hunt Artifact: Windows.System.Pslist     #show all processes in systems
+* Notebook:
+----
+SELECT Name,Exe,CommandLine,Hash.SHA256 AS SHA256, Authenticode.Trusted, Username, Fqdn, count() AS Count FROM source()  
+//count() AS Count = counts number of occurences that it finds in each process
+WHERE Authenticode.Trusted = "untrusted" // unsigned binaries, rare occurence to find digitally sign malware
+// List of environment-specific processes to exclude, those are known good binaries
+AND NOT Exe = "C:\\Program Files\\filebeat-rss\\filebeat.exe"
+AND NOT Exe = "C:\\Program Files\\filebeat\\filebeat.exe"
+AND NOT Exe = "C:\\Program Files\\winlogbeat-rss\\winlogbeat.exe"
+AND NOT Exe = "C:\\Program Files\\winlogbeat\\winlogbeat.exe"
+AND NOT Exe = "C:\\user-automation\\user.exe"
+AND NOT Exe = "C:\\salt\\bin\\python.exe"
+// Stack for prevalence analysis - group them by their full path executables, like path from what exe process was launched
+GROUP BY Exe
+// Sort results ascending - and order them by their prevelance (how common they are found)
+ORDER BY Count
+----
 
-
+Notebook2: VIRUS TOTAL !!!
+Leverage VirusTotal to quickly check untrusted processes for detections. Be mindful that free VT API is limited to 4 lookups / min & 500 / day so we'll be as efficient as possible with what we query against VT.
+* Hunt Artifact: Windows.System.Pslist
+----
+// Get a free VT api key
+LET VTKey <= "430298509435bab9b89ab89ab89ab8ba98b"
+// Build the list of untrusted processes first
+Let Results = SELECT Name,CommandLine,Exe,Hash.SHA256 AS SHA256, count() AS Count FROM source()
+WHERE Authenticode.Trusted = "untrusted"
+AND SHA256 // only entries with the required SHA256
+// List of environment-specific processes to exclude
+AND NOT Exe = "C:\\user-automation\\user.exe"
+GROUP BY Exe,SHA256
+// Now combine the previous query with the Server Enrichment query
+SELECT *, {SELECT VTRating FROM Artifact.Server.Enrichment.Virustotal(VirustotalKey=VTKey, Hash=SHA256) } AS VTResults FROM foreach(row=Results) WHERE Count < 10
+ORDER BY VTResults DESC
+----
 
 ######################################################################################
+https://gist.github.com/ecapuano/daee6f3704273c2c8b527f522c1725db
 
 
 ######################################################################################
