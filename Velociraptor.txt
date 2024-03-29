@@ -10,6 +10,10 @@ a multi-line comment
 LABELS
 When we add labels, we can specifie to run hunts only in those systems that have specific label. Also we can label systems
 
+Search for label compromised
+In device inventory upper corner ar search write:
+label:compromised
+
 ######################################################################################
 Find files or attachemnts in all systems
 
@@ -142,8 +146,8 @@ Find potential persistance - Sysinternals Autorunsc to hunt for potential persis
 * Hunt Artifact: Windows.Sysinternals.Autoruns
 ----
 LET Results = SELECT count() AS Count, Fqdn, Entry,Category,Profile,Description,`Image Path` AS ImagePath,`Launch String` AS LaunchString,`SHA-256` AS SHA256 FROM source()
-WHERE NOT Signer
-AND Enabled = "enabled"
+WHERE NOT Signer         // Autoruns that are not digitally sign
+AND Enabled = "enabled"     // autoruns that are enabled
 GROUP BY ImagePath,LaunchString
 SELECT * FROM Results
 WHERE Count < 5 // return entries present on fewer than 5 systems
@@ -161,7 +165,7 @@ C:\**\tkg.exe
 C:\**\Security_Protocol*
 C:\**\XKnqbpzl.txt   // shady txt file that was argument for cmstp.exe that associated with CobaltStrike
 
-* Notebook:
+* Notebook:   #When You have results Assign label to all systems that fount these results
 ----
 SELECT Fqdn,FullPath,MTime AS ModifiedTime,BTime as CreationTime, Hash,
 label(client_id=ClientId, labels="compromised", op="set") // label all systems with detections
@@ -169,13 +173,39 @@ FROM source()
 ----
 
 ######################################################################################
+Look for CobaltStrike - Yara scan for cobalt processes for all systems
 
+INFO about Windows.Detection.Yara.Process Configure parameters Fields
+# ProcessRegex - chose what processes or leave . for all processes
+# UploadHits tick - upload those processes to do some IR or static analysis
+# !!! YaraUrl - if I have particular Yara signatures I wana run, but its hosted on github, add URL for RAW version of that Yara rule !!!
+
+* Hunt Artifact: Windows.Detection.Yara.Process
+* Configuration Parameters as is default Yara Rules include already against Cobalt strike
+Cleaning up output
+Notebook:
+----
+SELECT Fqdn, ProcessName, Pid, Rule,
+label(client_id=ClientId, labels="cobaltstrike", op="set") // label all systems with detections
+FROM source()
+----
+result found also services.exe thats legitimate process, Cobalt strike injected into that process
 
 ######################################################################################
+Quarantine all impacted systems to prevent further damage. Quarantines all connections except Velociraptor connection to not lose access
 
+* Configure Hunt >
+Include condition:  Match by label
+Include Labels:  compromised
+* Select Artifact: Windows.Remediation.Quarantine
 
 ######################################################################################
+THIS IS WHERE FORENSICS ONLY START - perform triage forensics acquisitions from infected systems
 
+* Hunt Artifact: Windows.KapeFiles.Targets (run against all systems labeled compromised)
+* Paramenters:
+Kape targets: _SANS_Triage
+Notebook: none required
 
 ######################################################################################
 
