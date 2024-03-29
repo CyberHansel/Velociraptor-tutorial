@@ -201,15 +201,88 @@ Include Labels:  compromised
 
 ######################################################################################
 THIS IS WHERE FORENSICS ONLY START - perform triage forensics acquisitions from infected systems
+This will get most of known evidence locations, event logs, prefetch files, registry hives ... etc , etc.
 
 * Hunt Artifact: Windows.KapeFiles.Targets (run against all systems labeled compromised)
-* Paramenters:
+* Configure Parameters:
 Kape targets: _SANS_Triage
 Notebook: none required
 
 ######################################################################################
+HAYABUSA!  Will analyze entire folder full of event log, search for 15 000 known threats Sigma rules
+
 ######################################################################################
 ######################################################################################
+######################################################################################
+Finding malicious exe
+
+1. Windows.Network.Netstat
+   Windows.Network.NetstatEnriched - in Results "ProgramName" shows if program is signed by legitimate company and trusted or untrusted.
+                                     is non signed will show NULL
+
+2. Run for autoruns - Velo will automatically download sysinternals autoruns tool and run it.
+                      In Hunts Log we can see what Velo did
+!!! If registry key is in \Wow6432Node\ it means its 32 bit code running in 64 bit system, thats suspicious
+
+3. Run Windows.System.Pslist > processRegex write malicious pup or anything else. We had pup4message.exe malicious process
+
+4. See the memory used by this process - Windows.Triage.ProcessMemory #Dumps process memory and uploads into server.
+   in processRegex we add pup ; part or full process name.
+Dump - .dmp can be find in Velo server and clicking Uploaded Files near Results, Notebook. It then download it to browser.
+
+Microsoft uses Microsoft Unicode, not ASCII so in hex editor. Microsoft uses like that after each ASCII character there is null byte
+or 00. Thats how Microsoft stores string.
+
+5. Use Yara Hunt: Windows.Detection.Yara.NTFS
+   * Change default, that searches for    Windows/System32/kernel32\.dll$    files in  to:
+   PathRegex: \.exe$
+   * Also we can delete ShortHandYara rule and add:  wide:PWNED   #that will search for string PWNED in MS 16 bit Unicode
+                                                or:  ascii wide:securityreport
+
+!!! One thing about YARA if it can use directly open file trough usual Windows explorer system, it can access disc directly to open
+files that are in use or in other words unavailable !!!
+
+######################################################################################
+!!! there is built in windows packet capture tool etl2pcapng #but it caprutes in strange format, but Velo converts to pcap!!!
+
+To start packet capture we need to run it twice, 1st to start capture, then to end
+1. First  Hunt: Windows.Network.PacketCapture   with parameter StartTrace ticked and Results give path to ...\NetTrace.etl file
+
+2. Second Hunt: Windows.Network.PacketCaptur  empty parameter StartTrace and TraceFile: paste that path from results ...\NetTrace.etl
+In Uploaded Files there is link to download.
+
+3. Open with Wireshart and go to statistics > conversations
+   * Some traffic goes to velo C&C server 8000 port
+   * We found port 80 traffic left click > Apply as filter > Selected > A <> B (Both directions)
+   * Find where it sends something Left click > Follow > TCP stream
+
+4. Lets look at DNS cache Hunt: Windows.System.DNSCache
+   In Log we can se it does iponfig/displaydns # !!! in win 10/11 cant run this before switch from automatic to manual addressing !!!
+
+######################################################################################
+To find out when some processes are launched
+
+* Hunt: Windows.Forensic.Prefetch  #finds what has been launched recently on that machine
+* Configure parameters > binaryRegex > shellbind  #its shellbind.exe malicious process
+
+######################################################################################
+Chek Windows event files  #but there was sysmon installed with Velociraptor before for getting most logs
+
+* Hunt Windows.EventLogs.Evtx
+* Configure parameters > start time from previous, like minute before and minute after
+But we need to find shellbind either download and search or with Notebook VQL
+
+######################################################################################
+https://www.youtube.com/watch?v=EA40rztSOd4
+
+
+
+
+
+   
+
+
+
 
 
 
