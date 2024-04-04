@@ -1,3 +1,7 @@
+https://docs.velociraptor.app/artifact_references/
+artefacts
+##############33
+
 How to add comment in VQL
 
 1.) -- This is a single-line comment or # This is a single-line comment // This is single line comment
@@ -273,9 +277,10 @@ Chek Windows event files  #but there was sysmon installed with Velociraptor befo
 But we need to find shellbind either download and search or with Notebook VQL
 
 ######################################################################################
-https://www.youtube.com/watch?v=EA40rztSOd4
+https://www.youtube.com/watch?v=EA40rztSOd4 dll?
 
 
+######################################################################################
 
 
 
