@@ -19,6 +19,16 @@ In device inventory upper corner ar search write:
 label:compromised
 
 ######################################################################################
+FIND REGISTRY KEYS
+
+Artifact: Windows.System.Powershell.PSReadline
+Configure Parameters:  
+SearchFilesGlobTable: 
+HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\Netlogon\Parameters\AuditNTLMInDomain
+HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Lsa\MSV1_0\AuditReceivingNTLMTraffic
+Accessor: registry
+
+#######################################################################################
 Find files or attachemnts in all systems
 
 * Hunt Artifact: Windows.Search.FileFinder 
